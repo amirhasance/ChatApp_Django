@@ -6,8 +6,9 @@
     <title>Chat Rooms</title>
 </head>
 <body>
+   
     What chat room would you like to enter?<br>
-    <input id="room-name-input" type="text" size="100"><br>
+    <input id="room-name-input" type="text" size="50" value="groupName:"><br>
     <input id="room-name-submit" type="button" value="Enter">
 
     <script>
@@ -16,12 +17,14 @@
             if (e.keyCode === 13) {  // enter, return
                 document.querySelector('#room-name-submit').click();
             }
-        };
+        };  
 
         document.querySelector('#room-name-submit').onclick = function(e) {
             var roomName = document.querySelector('#room-name-input').value;
             window.location.pathname = '/chat/' + roomName + '/';
         };
     </script>
+    
+    
 </body>
 </html>
