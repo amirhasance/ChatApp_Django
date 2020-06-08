@@ -1,0 +1,8 @@
+<body>
+    <center>
+        {% csrf_token %}
+        <form method="POST">
+            {{form.as_p}}
+            <input type="submit" /> </form>
+    </center>
+</body>

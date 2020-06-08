@@ -1,3 +1,63 @@
+{% comment %} <!-- chat/templates/chat/room.html -->
+{% load static %}
+<!DOCTYPE html>
+<script src = "{% static 'reconnecting-websocket.js'%}"> </script>
+<html>
+<center>
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Room</title>
+</head>
+<body>
+    <textarea id="chat-log" cols="100" rows="20"></textarea><br/>
+    <input id="chat-message-input" type="text" size="100"/><br/>
+    <input id="chat-message-submit" type="button" value="Send"/>
+
+</body>
+<script>
+    var roomName = {{ room_name_json }};
+    var users = {{ users}};
+    var user = {{user}};
+
+    var chatSocket = new ReconnectingWebSocket(
+        'ws://' + window.location.host +
+        '/ws/chat/' + roomName + '/');
+
+    chatSocket.onmessage = function(e) {
+        var data = JSON.parse(e.data)
+        var message = data['message'];
+        document.querySelector('#chat-log').value += message.content + "   " + message.user + "  " + message.timestamp + " \n"
+        
+    };
+
+    chatSocket.onclose = function(e) {
+        console.error('Chat socket closed unexpectedly');
+    };
+
+    document.querySelector('#chat-message-input').focus();
+    document.querySelector('#chat-message-input').onkeyup = function(e) {
+        if (e.keyCode === 13) {  // enter, return
+            document.querySelector('#chat-message-submit').click();
+        }
+    };
+
+    document.querySelector('#chat-message-submit').onclick = function(e) {
+        var messageInputDom = document.querySelector('#chat-message-input');
+        var message = messageInputDom.value;
+        chatSocket.send(JSON.stringify({
+            'command' : 'new_message',
+            'message': message,
+            'from':user.username,
+        }));
+
+        messageInputDom.value = '';
+    };
+</script>
+</center>
+</html> 
+
+{% endcomment %}
+
 {% load static %}
 <!DOCTYPE html>
 <html>
@@ -21,8 +81,12 @@
     <div id="sidepanel">
       <div id="profile">
         <div class="wrap">
-          <img id="profile-img" src="http://emilcarlsson.se/assets/mikeross.png" class="online" alt="" />
-          <p>Mike Ross</p>
+          <img id="profile-img" src="" class="online" alt="" />
+          <p >
+          <div id="user-username">
+
+          </div> 
+          </p>
           <i class="fa fa-chevron-down expand-button" aria-hidden="true"></i>
           <div id="status-options">
             <ul>
@@ -47,28 +111,7 @@
         <input type="text" placeholder="Search contacts..." />
       </div>
       <div id="contacts">
-        <ul>
-          <li class="contact">
-            <div class="wrap">
-              <span class="contact-status online"></span>
-              <img src="http://emilcarlsson.se/assets/louislitt.png" alt="" />
-              <div class="meta">
-                <p class="name">Louis Litt</p>
-                <p class="preview">You just got LITT up, Mike.</p>
-              </div>
-            </div>
-          </li>
-          <li class="contact active">
-            <div class="wrap">
-              <span class="contact-status busy"></span>
-              <img src="http://emilcarlsson.se/assets/harveyspecter.png" alt="" />
-              <div class="meta">
-                <p class="name">Harvey Specter</p>
-                <p class="preview">Wrong. You take the gun, or you pull out a bigger one. Or, you call their bluff. Or, you do any one of a hundred and forty six other things.</p>
-              </div>
-            </div>
-          </li>
-        </ul>
+      
       </div>
       <div id="bottom-bar">
         <button id="addcontact"><i class="fa fa-user-plus fa-fw" aria-hidden="true"></i> <span>Add contact</span></button>
@@ -112,21 +155,37 @@
 <script src="{% static 'main.js' %}"></script>
 <script src="{% static 'reconnecting-websocket.js' %}"></script>
 <script>
-    var roomName = {{ room_name_json }};
-    var username = {{ username }};
+    var room = {{ room }};
+    var room_name = {{room_name}}
+    var users = {{users}}
+    var user = {{ user }};
+    
+
+
+    {
+    document.getElementById("profile-img").src = user.image
+
+    document.getElementById("user-username").innerHtml = user.username
+
+    }
+
+    
 
     var chatSocket = new ReconnectingWebSocket(
         'ws://' + window.location.host +
-        '/ws/chat/' + roomName + '/');
+        '/ws/chat/' + room_name + '/');
 
     chatSocket.onopen = function(e) {
+      
       fetchMessages();
+      contacts()
     }
 
     chatSocket.onmessage = function(e) {
         var data = JSON.parse(e.data);
         if (data['command'] === 'messages') {
           for (let i=0; i<data['messages'].length; i++) {
+            
             createMessage(data['messages'][i]);
           }
         } else if (data['command'] === 'new_message'){
@@ -150,7 +209,8 @@
         chatSocket.send(JSON.stringify({
             'command': 'new_message',
             'message': message,
-            'from': username
+            'from': user.username,
+            'room_name':room_name,
         }));
 
         messageInputDom.value = '';
@@ -161,14 +221,31 @@
     }
 
     function createMessage(data) {
-      var author = data['author'];
+
+      // data['user']
+      //data['content']
+      //data['timestamp']
+      var message_user ;
+      var message_user_image;
+      var messsage_time;
+
+      for (let x = 0 ; x<users.length ; x++)
+      {
+          if (users[x].username === data.user)
+          {
+              message_user = users[x]
+              message_user_image = users[x].image
+              messsage_time = users[x].timestamp
+          }
+
+      }
       var msgListTag = document.createElement('li');
       var imgTag = document.createElement('img');
       var pTag = document.createElement('p');
       pTag.textContent = data.content;
-      imgTag.src = 'http://emilcarlsson.se/assets/mikeross.png';
-      
-      if (author === username) {
+      imgTag.src = message_user_image
+
+      if ( data.user === user.username) {
         msgListTag.className = 'sent';
       } else {
         msgListTag.className = 'replies';
@@ -176,6 +253,65 @@
       msgListTag.appendChild(imgTag);
       msgListTag.appendChild(pTag);
       document.querySelector('#chat-log').appendChild(msgListTag);
+    }
+    function contacts()
+    {
+        // delete all before ?:
+    var f = document.getElementById("contacts")
+     while (f.lastElementChild) {
+    myNode.removeChild(f.lastElementChild);
+  }
+
+        /*  <ul>
+          <li class="contact">
+            <div class="wrap">
+              <span class="contact-status online"></span>
+              <img src="http://emilcarlsson.se/assets/louislitt.png" alt="" />
+              <div class="meta">
+                <p class="name">Louis Litt</p>
+                <p class="preview">You just got LITT up, Mike.</p>
+              </div>
+            </div>
+          </li>
+          <li class="contact active">
+            <div class="wrap">
+              <span class="contact-status busy"></span>
+              <img src="http://emilcarlsson.se/assets/harveyspecter.png" alt="" />
+              <div class="meta">
+                <p class="name">Harvey Specter</p>
+                <p class="preview">Wrong. You take the gun, or you pull out a bigger one. Or, you call their bluff. Or, you do any one of a hundred and forty six other things.</p>
+              </div>
+            </div>
+          </li>
+        </ul> */
+        for(let x = 0 ; x < users.length ; x++)
+        {   var ul = document.createElement("ul")
+            var il_contact = document.createElement("li")
+            il_contact.className = "contact"
+            var div1 = document.createElement("div")
+            div1.className = "wrap"
+            var span1 = document.createElement("span")
+            span1.className = "contact_status online"
+            var img1 = document.createElement("img")
+            img1.src = users[x].image
+            var div2 = document.createElement("div")
+            div2.className = "meta"
+            var  p1 = document.createElement("p")
+            var p2 = document.createElement("p")
+            p1.className = "name"
+            p2.className = "preview"
+            p1.innerHtml = users[x].username
+            div2.appendChild(p1)
+            div2.appendChild(p2)
+            div1.appendChild(span1)
+            div1.appendChild(img1)
+            div1.appendChild(div2)
+            il_contact.appendChild(div1)
+            ul.appendChild(il_contact)
+            document.getElementById("contacts").appendChild(ul)
+            
+
+        }
     }
 
 </script>
